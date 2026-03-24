@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SmartBin — Municipal Waste Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root {
+    --bg: #0d0f0e;
+    --surface: #141714;
+    --surface2: #1c201b;
+    --border: #2a2e29;
+    --border2: #353a34;
+    --text: #e8ebe6;
+    --text2: #8a9088;
+    --text3: #5a5e58;
+    --green: #4cdb7a;
+    --green-dim: #1a3d26;
+    --orange: #f5a623;
+    --orange-dim: #3d2900;
+    --red: #f5424a;
+    --red-dim: #3d0a0c;
+    --accent: #b8ff4f;
+    --accent-dim: #2a3a00;
+    --accent2: #4cdb7a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden}
+  body{min-height:100vh}
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-track{background:var(--surface)}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+
+  /* ─── LOGIN ─── */
+  #login-screen{
+    display:flex;align-items:center;justify-content:center;
+    min-height:100vh;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, #1a2e1a 0%, var(--bg) 60%);
+    position:relative;overflow:hidden;
+  }
+  #login-screen::before{
+    content:'';position:absolute;inset:0;
+    background-image:
+      repeating-linear-gradient(0deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px),
+      repeating-linear-gradient(90deg, transparent, transparent 39px, var(--border) 39px, var(--border) 40px);
+    opacity:.25;pointer-events:none;
+  }
+  .login-card{
+    background:var(--surface);border:1px solid var(--border2);
+    padding:48px 40px;width:420px;max-width:95vw;
+    position:relative;z-index:1;
+    box-shadow:0 0 80px rgba(76,219,122,.07);
+  }
+  .login-logo{
+    display:flex;align-items:center;gap:12px;margin-bottom:36px;
+  }
+  .logo-icon{
+    width:44px;height:44px;background:var(--accent);display:flex;
+    align-items:center;justify-content:center;font-size:22px;flex-shrink:0;
+  }
+  .login-logo h1{font-size:22px;font-weight:800;letter-spacing:-.5px;line-height:1}
+  .login-logo span{font-size:11px;color:var(--text2);font-family:'Space Mono',monospace;letter-spacing:.5px}
+  .login-title{font-size:14px;color:var(--text2);font-family:'Space Mono',monospace;
+    letter-spacing:.5px;margin-bottom:28px;text-transform:uppercase}
+  .role-tabs{display:flex;gap:4px;margin-bottom:24px;background:var(--bg);padding:4px;border:1px solid var(--border)}
+  .role-tab{
+    flex:1;padding:8px 4px;text-align:center;font-size:12px;font-weight:700;
+    letter-spacing:.5px;text-transform:uppercase;cursor:pointer;
+    color:var(--text3);border:none;background:transparent;font-family:'Syne',sans-serif;
+    transition:all .2s;
+  }
+  .role-tab.active{background:var(--accent);color:#0d0f0e}
+  .form-group{margin-bottom:18px}
+  .form-label{display:block;font-size:11px;font-family:'Space Mono',monospace;
+    color:var(--text2);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px}
+  .form-input{
+    width:100%;background:var(--bg);border:1px solid var(--border2);
+    color:var(--text);padding:12px 14px;font-size:14px;font-family:'Syne',sans-serif;
+    outline:none;transition:border-color .2s;
+  }
+  .form-input:focus{border-color:var(--accent)}
+  .form-input::placeholder{color:var(--text3)}
+  .login-btn{
+    width:100%;background:var(--accent);color:#0d0f0e;border:none;
+    padding:14px;font-size:15px;font-weight:800;letter-spacing:.5px;
+    text-transform:uppercase;cursor:pointer;font-family:'Syne',sans-serif;
+    transition:opacity .2s;margin-top:8px;
+  }
+  .login-btn:hover{opacity:.88}
+  .login-hint{margin-top:20px;font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;
+    line-height:1.7;border-top:1px solid var(--border);padding-top:16px}
+  .login-hint b{color:var(--text2)}
+  .error-msg{background:var(--red-dim);border:1px solid var(--red);color:var(--red);
+    padding:10px 14px;font-size:12px;font-family:'Space Mono',monospace;margin-bottom:16px;display:none}
+
+  /* ─── APP SHELL ─── */
+  #app{display:none;flex-direction:column;height:100vh}
+
+  /* ─── TOPBAR ─── */
+  .topbar{
+    background:var(--surface);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:0;flex-shrink:0;height:56px;
+    position:relative;z-index:100;
+  }
+  .topbar-logo{
+    display:flex;align-items:center;gap:10px;padding:0 20px;
+    border-right:1px solid var(--border);height:100%;min-width:220px;
+  }
+  .topbar-logo .logo-box{width:30px;height:30px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:16px}
+  .topbar-logo span{font-size:15px;font-weight:800;letter-spacing:-.3px}
+  .topbar-nav{display:flex;height:100%;flex:1;overflow-x:auto}
+  .nav-item{
+    padding:0 20px;display:flex;align-items:center;gap:8px;
+    font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;
+    color:var(--text3);cursor:pointer;border-right:1px solid var(--border);
+    border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap;
+    font-family:'Space Mono',monospace;
+  }
+  .nav-item:hover{color:var(--text);background:var(--surface2)}
+  .nav-item.active{color:var(--accent);border-bottom-color:var(--accent);background:var(--surface2)}
+  .nav-item svg{width:14px;height:14px}
+  .topbar-right{margin-left:auto;display:flex;align-items:center;gap:0;height:100%}
+  .alert-bell{
+    padding:0 18px;height:100%;display:flex;align-items:center;gap:8px;
+    cursor:pointer;border-left:1px solid var(--border);position:relative;
+    transition:background .2s;font-size:12px;color:var(--text2);
+  }
+  .alert-bell:hover{background:var(--surface2)}
+  .alert-badge{
+    background:var(--red);color:#fff;border-radius:10px;
+    padding:2px 6px;font-size:10px;font-weight:700;font-family:'Space Mono',monospace;
+  }
+  .user-info{
+    padding:0 20px;height:100%;display:flex;align-items:center;gap:10px;
+    border-left:1px solid var(--border);cursor:pointer;transition:background .2s;
+  }
+  .user-info:hover{background:var(--surface2)}
+  .user-avatar{
+    width:30px;height:30px;background:var(--accent-dim);border:1px solid var(--accent);
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--accent)
+  }
+  .user-name{font-size:12px;font-weight:700}
+  .user-role{font-size:10px;color:var(--text3);font-family:'Space Mono',monospace;text-transform:uppercase}
+  .logout-btn{
+    padding:0 18px;height:100%;display:flex;align-items:center;
+    border-left:1px solid var(--border);cursor:pointer;font-size:11px;
+    color:var(--text3);font-family:'Space Mono',monospace;letter-spacing:.5px;
+    text-transform:uppercase;transition:all .2s;
+  }
+  .logout-btn:hover{color:var(--red);background:var(--red-dim)}
+
+  /* ─── MAIN CONTENT ─── */
+  .main{flex:1;overflow:hidden;display:flex}
+  .page{display:none;flex:1;overflow-y:auto;flex-direction:column}
+  .page.active{display:flex}
+
+  /* ─── ALERT PANEL ─── */
+  .alert-panel{
+    position:fixed;top:56px;right:0;width:340px;height:calc(100vh - 56px);
+    background:var(--surface);border-left:1px solid var(--border);
+    z-index:200;transform:translateX(100%);transition:transform .3s;
+    display:flex;flex-direction:column;
+  }
+  .alert-panel.open{transform:translateX(0)}
+  .alert-panel-header{
+    padding:18px 20px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;
+  }
+  .alert-panel-header h3{font-size:13px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;font-family:'Space Mono',monospace}
+  .close-btn{cursor:pointer;color:var(--text3);font-size:18px;transition:color .2s}
+  .close-btn:hover{color:var(--text)}
+  .alert-list{flex:1;overflow-y:auto;padding:12px}
+  .alert-item{
+    background:var(--bg);border:1px solid var(--border);padding:14px;
+    margin-bottom:8px;position:relative;overflow:hidden;
+  }
+  .alert-item::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--red)}
+  .alert-item.warn::before{background:var(--orange)}
+  .alert-id{font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);margin-bottom:4px}
+  .alert-msg{font-size:13px;font-weight:700;color:var(--text);margin-bottom:6px}
+  .alert-meta{font-size:10px;font-family:'Space Mono',monospace;color:var(--text3)}
+  .alert-level{
+    display:inline-block;padding:2px 8px;font-size:10px;font-weight:700;
+    font-family:'Space Mono',monospace;background:var(--red-dim);color:var(--red);
+    border:1px solid var(--red);margin-bottom:6px;
+  }
+  .alert-level.warn{background:var(--orange-dim);color:var(--orange);border-color:var(--orange)}
+
+  /* ─── DASHBOARD PAGE ─── */
+  .page-header{
+    padding:28px 28px 0;display:flex;align-items:flex-start;
+    justify-content:space-between;flex-shrink:0;gap:16px;flex-wrap:wrap;
+  }
+  .page-title{font-size:26px;font-weight:800;letter-spacing:-1px}
+  .page-sub{font-size:12px;color:var(--text3);font-family:'Space Mono',monospace;margin-top:4px}
+  .header-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .btn{
+    padding:9px 18px;font-size:12px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase;cursor:pointer;font-family:'Space Mono',monospace;
+    border:none;transition:all .2s;
+  }
+  .btn-accent{background:var(--accent);color:#0d0f0e}
+  .btn-accent:hover{opacity:.88}
+  .btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2)}
+  .btn-ghost:hover{border-color:var(--text);color:var(--text)}
+
+  /* ─── STATS ROW ─── */
+  .stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:20px 28px;flex-shrink:0}
+  @media(max-width:700px){.stats-row{grid-template-columns:repeat(2,1fr)}}
+  .stat-card{
+    background:var(--surface);border:1px solid var(--border);padding:18px 20px;
+    position:relative;overflow:hidden;
+  }
+  .stat-card::after{
+    content:'';position:absolute;right:-10px;bottom:-10px;
+    width:60px;height:60px;border:1px solid var(--border2);border-radius:50%;
+  }
+  .stat-label{font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .stat-val{font-size:32px;font-weight:800;letter-spacing:-1.5px;line-height:1}
+  .stat-val.green{color:var(--green)}
+  .stat-val.orange{color:var(--orange)}
+  .stat-val.red{color:var(--red)}
+  .stat-val.accent{color:var(--accent)}
+  .stat-change{font-size:11px;color:var(--text3);margin-top:6px;font-family:'Space Mono',monospace}
+
+  /* ─── FILTER BAR ─── */
+  .filter-bar{
+    display:flex;gap:8px;padding:0 28px 16px;align-items:center;flex-wrap:wrap;flex-shrink:0;
+  }
+  .filter-btn{
+    padding:6px 14px;font-size:11px;font-weight:700;cursor:pointer;
+    font-family:'Space Mono',monospace;letter-spacing:.5px;text-transform:uppercase;
+    border:1px solid var(--border2);background:transparent;color:var(--text3);
+    transition:all .2s;
+  }
+  .filter-btn:hover,.filter-btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+  .search-input{
+    background:var(--surface);border:1px solid var(--border2);
+    color:var(--text);padding:6px 12px;font-size:12px;
+    font-family:'Space Mono',monospace;outline:none;width:200px;
+  }
+  .search-input:focus{border-color:var(--accent)}
+  .search-input::placeholder{color:var(--text3)}
+
+  /* ─── BIN GRID ─── */
+  .bin-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));
+    gap:12px;padding:0 28px 28px;overflow-y:auto}
+  .bin-card{
+    background:var(--surface);border:1px solid var(--border);padding:20px;
+    cursor:pointer;transition:all .25s;position:relative;overflow:hidden;
+  }
+  .bin-card:hover{border-color:var(--border2);transform:translateY(-2px);
+    box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  .bin-card::before{
+    content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  }
+  .bin-card.green-card::before{background:var(--green)}
+  .bin-card.orange-card::before{background:var(--orange)}
+  .bin-card.red-card::before{background:var(--red)}
+  .bin-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+  .bin-id{font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);
+    letter-spacing:.5px;text-transform:uppercase}
+  .bin-name{font-size:16px;font-weight:800;margin-top:2px;letter-spacing:-.3px}
+  .status-dot{
+    width:10px;height:10px;border-radius:50%;flex-shrink:0;margin-top:4px;
+    position:relative;
+  }
+  .status-dot::after{
+    content:'';position:absolute;inset:-3px;border-radius:50%;
+    border:1px solid currentColor;opacity:.4;
+  }
+  .status-dot.green{background:var(--green);color:var(--green)}
+  .status-dot.orange{background:var(--orange);color:var(--orange)}
+  .status-dot.red{background:var(--red);color:var(--red);
+    animation:pulse-red 1.5s ease-in-out infinite}
+  @keyframes pulse-red{0%,100%{box-shadow:0 0 0 0 rgba(245,66,74,.4)}50%{box-shadow:0 0 0 6px rgba(245,66,74,0)}}
+  .fill-bar-wrap{margin-bottom:14px}
+  .fill-bar-label{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+  .fill-bar-label span{font-size:11px;font-family:'Space Mono',monospace;color:var(--text2)}
+  .fill-pct{font-size:24px;font-weight:800;letter-spacing:-1px}
+  .fill-pct.green{color:var(--green)}
+  .fill-pct.orange{color:var(--orange)}
+  .fill-pct.red{color:var(--red)}
+  .fill-bar-bg{height:4px;background:var(--border);position:relative}
+  .fill-bar-fg{height:100%;transition:width .5s ease}
+  .fill-bar-fg.green{background:var(--green)}
+  .fill-bar-fg.orange{background:var(--orange)}
+  .fill-bar-fg.red{background:var(--red)}
+  .bin-footer{display:flex;align-items:center;justify-content:space-between}
+  .bin-location{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace}
+  .bin-time{font-size:10px;color:var(--text3);font-family:'Space Mono',monospace}
+  .bin-badge{
+    padding:2px 8px;font-size:9px;font-weight:700;font-family:'Space Mono',monospace;
+    text-transform:uppercase;letter-spacing:.5px;border:1px solid;
+  }
+  .bin-badge.green{color:var(--green);border-color:var(--green);background:var(--green-dim)}
+  .bin-badge.orange{color:var(--orange);border-color:var(--orange);background:var(--orange-dim)}
+  .bin-badge.red{color:var(--red);border-color:var(--red);background:var(--red-dim)}
+
+  /* ─── MAP PAGE ─── */
+  #map-container{flex:1;display:flex;flex-direction:column;min-height:0}
+  #map-header{padding:20px 28px 16px;flex-shrink:0}
+  #leaflet-map{flex:1;min-height:400px;background:#0a0c0a}
+  .leaflet-container{background:#0a0c0a!important}
+  .custom-marker{
+    width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+    justify-content:center;font-size:11px;font-weight:700;font-family:'Space Mono',monospace;
+    border:2px solid;box-shadow:0 2px 8px rgba(0,0,0,.6);
+  }
+  .map-legend{
+    display:flex;gap:16px;flex-wrap:wrap;padding:12px 28px;
+    background:var(--surface);border-top:1px solid var(--border);flex-shrink:0;
+  }
+  .legend-item{display:flex;align-items:center;gap:8px;font-size:11px;
+    font-family:'Space Mono',monospace;color:var(--text2)}
+  .legend-dot{width:10px;height:10px;border-radius:50%}
+
+  /* ─── ALERTS PAGE ─── */
+  .alerts-layout{display:flex;flex:1;min-height:0;overflow:hidden}
+  .alerts-sidebar{
+    width:220px;border-right:1px solid var(--border);
+    padding:20px;flex-shrink:0;overflow-y:auto;
+  }
+  .alerts-main{flex:1;overflow-y:auto;padding:20px 28px}
+  .sidebar-section{margin-bottom:24px}
+  .sidebar-label{font-size:10px;font-family:'Space Mono',monospace;color:var(--text3);
+    text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+  .sidebar-filter{
+    display:flex;align-items:center;gap:8px;padding:8px 10px;
+    font-size:12px;cursor:pointer;color:var(--text2);transition:all .2s;
+    border:1px solid transparent;margin-bottom:4px;
+  }
+  .sidebar-filter:hover,.sidebar-filter.active{
+    color:var(--text);border-color:var(--border2);background:var(--surface2)
+  }
+  .alerts-table{width:100%;border-collapse:collapse}
+  .alerts-table th{
+    text-align:left;padding:10px 14px;font-size:10px;font-family:'Space Mono',monospace;
+    color:var(--text3);text-transform:uppercase;letter-spacing:.5px;
+    border-bottom:1px solid var(--border);
+  }
+  .alerts-table td{
+    padding:12px 14px;font-size:13px;border-bottom:1px solid var(--border);
+    transition:background .15s;
+  }
+  .alerts-table tr:hover td{background:var(--surface2)}
+  .severity-badge{
+    padding:3px 10px;font-size:10px;font-weight:700;font-family:'Space Mono',monospace;
+    text-transform:uppercase;letter-spacing:.5px;border:1px solid;display:inline-block;
+  }
+  .sev-critical{color:var(--red);border-color:var(--red);background:var(--red-dim)}
+  .sev-warning{color:var(--orange);border-color:var(--orange);background:var(--orange-dim)}
+  .sev-info{color:var(--green);border-color:var(--green);background:var(--green-dim)}
+  @media(max-width:640px){
+    .alerts-sidebar{display:none}
+    .alerts-main{padding:12px}
+  }
+
+  /* ─── SETTINGS PAGE ─── */
+  .settings-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:24px 28px;overflow-y:auto}
+  @media(max-width:700px){.settings-layout{grid-template-columns:1fr}}
+  .settings-card{background:var(--surface);border:1px solid var(--border);padding:24px}
+  .settings-card-title{font-size:13px;font-weight:700;letter-spacing:.5px;
+    text-transform:uppercase;font-family:'Space Mono',monospace;
+    margin-bottom:20px;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:12px}
+  .setting-row{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 0;border-bottom:1px solid var(--border);gap:12px}
+  .setting-row:last-child{border-bottom:none}
+  .setting-name{font-size:13px;font-weight:700}
+  .setting-desc{font-size:11px;color:var(--text3);font-family:'Space Mono',monospace;margin-top:2px}
+  .toggle{
+    width:40px;height:22px;background:var(--border);border-radius:11px;
+    position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;
+  }
+  .toggle.on{background:var(--accent)}
+  .toggle::after{
+    content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;
+    background:#0d0f0e;border-radius:50%;transition:left .2s;
+  }
+  .toggle.on::after{left:21px}
+
+  /* ─── TOAST NOTIFICATIONS ─── */
+  #toast-container{
+    position:fixed;bottom:20px;right:20px;z-index:9999;
+    display:flex;flex-direction:column;gap:8px;pointer-events:none;
+  }
+  .toast{
+    background:var(--surface);border:1px solid var(--border2);
+    padding:14px 18px;min-width:280px;max-width:360px;
+    display:flex;align-items:flex-start;gap:12px;pointer-events:all;
+    transform:translateX(100%);opacity:0;transition:all .3s;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+  .toast.show{transform:translateX(0);opacity:1}
+  .toast-icon{font-size:18px;flex-shrink:0;margin-top:1px}
+  .toast-title{font-size:13px;font-weight:700;margin-bottom:2px}
+  .toast-msg{font-size:11px;color:var(--text2);font-family:'Space Mono',monospace}
+  .toast.danger{border-left:3px solid var(--red)}
+  .toast.warn{border-left:3px solid var(--orange)}
+  .toast.success{border-left:3px solid var(--green)}
+
+  /* ─── BIN MODAL ─── */
+  .modal-overlay{
+    display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
+    z-index:500;align-items:center;justify-content:center;padding:20px;
+  }
+  .modal-overlay.open{display:flex}
+  .modal{
+    background:var(--surface);border:1px solid var(--border2);
+    width:520px;max-width:100%;max-height:90vh;overflow-y:auto;
+  }
+  .modal-header{
+    padding:20px 24px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .modal-title{font-size:16px;font-weight:800;letter-spacing:-.5px}
+  .modal-body{padding:24px}
+  .modal-row{display:flex;gap:16px;margin-bottom:14px;flex-wrap:wrap}
+  .modal-field{flex:1;min-width:140px}
+  .modal-field-label{font-size:10px;font-family:'Space Mono',monospace;
+    color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  .modal-field-value{font-size:15px;font-weight:700}
+  .modal-big-bar{height:8px;background:var(--border);margin:20px 0 6px;position:relative}
+  .modal-big-bar-fg{height:100%;transition:width .5s}
+  .modal-big-bar-fg.green{background:var(--green)}
+  .modal-big-bar-fg.orange{background:var(--orange)}
+  .modal-big-bar-fg.red{background:var(--red)}
+  .modal-actions{display:flex;gap:8px;margin-top:20px;flex-wrap:wrap}
+
+  /* ─── LOADING ─── */
+  .loading{
+    display:flex;align-items:center;justify-content:center;
+    flex:1;flex-direction:column;gap:16px;color:var(--text3);
+  }
+  .spinner{
+    width:40px;height:40px;border:2px solid var(--border);
+    border-top-color:var(--accent);border-radius:50%;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ─── RESPONSIVE ─── */
+  @media(max-width:600px){
+    .topbar-logo{min-width:auto;padding:0 14px}
+    .topbar-logo span{display:none}
+    .topbar-logo .logo-box{width:26px;height:26px;font-size:14px}
+    .stats-row{padding:14px;gap:8px}
+    .bin-grid{padding:0 14px 14px;grid-template-columns:1fr}
+    .page-header{padding:16px 14px 0}
+    .filter-bar{padding:0 14px 10px}
+    .nav-item{padding:0 12px}
+    .alerts-main{padding:12px 14px}
+    .settings-layout{padding:14px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">🗑️</div>
+      <div>
+        <h1>SmartBin</h1>
+        <span>MUNICIPAL WASTE INTELLIGENCE</span>
+      </div>
+    </div>
+    <div class="login-title">// Select Role & Sign In</div>
+    <div class="role-tabs">
+      <button class="role-tab active" onclick="selectRole('admin',this)">Admin</button>
+      <button class="role-tab" onclick="selectRole('worker',this)">Worker</button>
+      <button class="role-tab" onclick="selectRole('citizen',this)">Citizen</button>
+    </div>
+    <div class="error-msg" id="login-error">Invalid credentials. Please try again.</div>
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input class="form-input" id="login-email" type="email" placeholder="you@municipality.gov" autocomplete="email"/>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" id="login-password" type="password" placeholder="••••••••"/>
+    </div>
+    <button class="login-btn" onclick="doLogin()">Authenticate →</button>
+    <div class="login-hint">
+      Demo credentials:<br/>
+      <b>Admin:</b> admin@city.gov / admin123<br/>
+      <b>Worker:</b> worker@city.gov / worker123<br/>
+      <b>Citizen:</b> citizen@city.gov / citizen123
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <div class="logo-box">🗑️</div>
+      <span>SmartBin</span>
+    </div>
+    <nav class="topbar-nav">
+      <div class="nav-item active" onclick="showPage('dashboard',this)" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </div>
+      <div class="nav-item" onclick="showPage('map',this)" id="nav-map">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/><line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/></svg>
+        Map View
+      </div>
+      <div class="nav-item" onclick="showPage('alerts',this)" id="nav-alerts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        Alerts
+      </div>
+      <div class="nav-item admin-only" onclick="showPage('settings',this)" id="nav-settings" style="display:none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Settings
+      </div>
+    </nav>
+    <div class="topbar-right">
+      <div class="alert-bell" onclick="toggleAlertPanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="alert-badge" id="alert-count">0</span>
+      </div>
+      <div class="user-info">
+        <div class="user-avatar" id="user-avatar">?</div>
+        <div>
+          <div class="user-name" id="user-name-display">Loading</div>
+          <div class="user-role" id="user-role-display">—</div>
+        </div>
+      </div>
+      <div class="logout-btn" onclick="doLogout()">Exit</div>
+    </div>
+  </div>
+
+  <!-- ALERT PANEL -->
+  <div class="alert-panel" id="alert-panel">
+    <div class="alert-panel-header">
+      <h3>⚠ Live Alerts</h3>
+      <span class="close-btn" onclick="toggleAlertPanel()">✕</span>
+    </div>
+    <div class="alert-list" id="alert-list-panel"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- DASHBOARD PAGE -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Bin Dashboard</div>
+          <div class="page-sub">// REAL-TIME WASTE LEVEL MONITORING</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="simulateUpdate()">↻ Simulate Update</button>
+          <button class="btn btn-accent" onclick="showAddBinModal()">+ Add Bin</button>
+        </div>
+      </div>
+      <div class="stats-row" id="stats-row"></div>
+      <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterBins('all',this)">All</button>
+        <button class="filter-btn" onclick="filterBins('green',this)">Normal</button>
+        <button class="filter-btn" onclick="filterBins('orange',this)">Half-Full</button>
+        <button class="filter-btn" onclick="filterBins('red',this)">Critical</button>
+        <input class="search-input" id="bin-search" placeholder="Search bins…" oninput="filterBins('search',null,this.value)"/>
+      </div>
+      <div class="bin-grid" id="bin-grid"></div>
+    </div>
+
+    <!-- MAP PAGE -->
+    <div class="page" id="page-map" style="display:none;flex:1;flex-direction:column">
+      <div id="map-container">
+        <div id="map-header">
+          <div class="page-title">Live Map</div>
+          <div class="page-sub">// GPS-TRACKED BIN LOCATIONS — CHENNAI, INDIA</div>
+        </div>
+        <div id="leaflet-map"></div>
+        <div class="map-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>Normal (&lt;50%)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--orange)"></div>Half-Full (50–80%)</div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>Critical (&gt;80%)</div>
+          <div class="legend-item" style="margin-left:auto;font-size:10px;opacity:.5">Leaflet.js • OpenStreetMap</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTS PAGE -->
+    <div class="page" id="page-alerts" style="display:none;flex:1;flex-direction:column">
+      <div class="page-header" style="flex-shrink:0">
+        <div>
+          <div class="page-title">Alert Log</div>
+          <div class="page-sub">// AUTOMATED NOTIFICATIONS & DISPATCH</div>
+        </div>
+        <div class="header-actions">
+          <button class="btn btn-ghost" onclick="clearAlerts()">Clear All</button>
+        </div>
+      </div>
+      <div class="alerts-layout">
+        <div class="alerts-sidebar">
+          <div class="sidebar-section">
+            <div class="sidebar-label">Filter by Type</div>
+            <div class="sidebar-filter active" onclick="filterAlerts('all',this)">📋 All Alerts</div>
+            <div class="sidebar-filter" onclick="filterAlerts('critical',this)">🔴 Critical</div>
+            <div class="sidebar-filter" onclick="filterAlerts('warning',this)">🟠 Warning</div>
+            <div class="sidebar-filter" onclick="filterAlerts('info',this)">🟢 Info</div>
+          </div>
+          <div class="sidebar-section">
+            <div class="sidebar-label">Stats</div>
+            <div style="font-size:12px;font-family:'Space Mono',monospace;color:var(--text2);line-height:2">
+              Total: <b id="alert-stat-total" style="color:var(--text)">0</b><br/>
+              Critical: <b id="alert-stat-crit" style="color:var(--red)">0</b><br/>
+              Warning: <b id="alert-stat-warn" style="color:var(--orange)">0</b><br/>
+              Resolved: <b id="alert-stat-res" style="color:var(--green)">0</b>
+            </div>
+          </div>
+        </div>
+        <div class="alerts-main">
+          <table class="alerts-table">
+            <thead>
+              <tr>
+                <th>Severity</th><th>Bin ID</th><th>Message</th><th>Fill %</th><th>Time</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="alerts-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS PAGE -->
+    <div class="page" id="page-settings" style="display:none;flex:1;flex-direction:column">
+      <div class="page-header" style="flex-shrink:0">
+        <div>
+          <div class="page-title">System Settings</div>
+          <div class="page-sub">// ADMIN-ONLY CONFIGURATION PANEL</div>
+        </div>
+      </div>
+      <div class="settings-layout">
+        <div class="settings-card">
+          <div class="settings-card-title">// Notification Settings</div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-name">SMS Alerts</div>
+              <div class="setting-desc">Send SMS to field workers</div>
+            </div>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-name">Email Notifications</div>
+              <div class="setting-desc">Notify admin by email</div>
+            </div>
+            <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-name">Push Notifications</div>
+              <div class="setting-desc">Browser push alerts</div>
+            </div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div>
+              <div class="setting-name">Auto-Dispatch</div>
+              <div class="setting-desc">Auto-assign worker when critical</div>
+            </div>
+            <div class="toggle" onclick="this.classList.toggle('on')"></div>
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="settings-card-title">// Threshold Configuration</div>
+          <div class="setting-row">
+            <div><div class="setting-name">Critical Level</div><div class="setting-desc">Trigger critical alert above this %</div></div>
+            <span style="font-size:20px;font-weight:800;color:var(--red);font-family:'Space Mono',monospace">80%</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-name">Warning Level</div><div class="setting-desc">Trigger warning alert above this %</div></div>
+            <span style="font-size:20px;font-weight:800;color:var(--orange);font-family:'Space Mono',monospace">50%</span>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-name">Data Refresh Rate</div><div class="setting-desc">Simulate IoT update interval</div></div>
+            <span style="font-size:16px;font-weight:700;color:var(--accent);font-family:'Space Mono',monospace">30s</span>
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="settings-card-title">// User Management</div>
+          <div style="font-size:12px;font-family:'Space Mono',monospace;color:var(--text2);line-height:2.2">
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+              <span>👤 admin@city.gov</span><span style="color:var(--accent)">ADMIN</span>
+            </div>
+            <div style="display:flex;justify-content:space-between;border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:8px">
+              <span>👷 worker@city.gov</span><span style="color:var(--orange)">WORKER</span>
+            </div>
+            <div style="display:flex;justify-content:space-between">
+              <span>🙋 citizen@city.gov</span><span style="color:var(--text3)">CITIZEN</span>
+            </div>
+          </div>
+        </div>
+        <div class="settings-card">
+          <div class="settings-card-title">// System Info</div>
+          <div style="font-size:12px;font-family:'Space Mono',monospace;color:var(--text2);line-height:2.5">
+            Version: <b style="color:var(--text)">v2.4.1</b><br/>
+            Bins Online: <b id="bins-online-count" style="color:var(--green)">—</b><br/>
+            Backend: <b style="color:var(--text)">Firebase Simulated</b><br/>
+            Map: <b style="color:var(--text)">Leaflet.js + OSM</b><br/>
+            Last Sync: <b id="last-sync" style="color:var(--text)">—</b>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BIN MODAL -->
+<div class="modal-overlay" id="bin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title">Bin Details</div>
+      <span class="close-btn" onclick="closeModal()">✕</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- ADD BIN MODAL -->
+<div class="modal-overlay" id="add-bin-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New Bin</div>
+      <span class="close-btn" onclick="document.getElementById('add-bin-modal').classList.remove('open')">✕</span>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Bin Name / Location</label>
+        <input class="form-input" id="new-bin-name" placeholder="e.g. Park Street Junction"/>
+      </div>
+      <div class="modal-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Latitude</label>
+          <input class="form-input" id="new-bin-lat" placeholder="13.0827"/>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Longitude</label>
+          <input class="form-input" id="new-bin-lng" placeholder="80.2707"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Initial Fill Level (%)</label>
+        <input class="form-input" id="new-bin-fill" type="number" min="0" max="100" placeholder="45"/>
+      </div>
+      <button class="login-btn" onclick="addNewBin()" style="margin-top:8px">Add Bin →</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST CONTAINER -->
+<div id="toast-container"></div>
+
+<script>
+/* ══════════════════════════════════════════════
+   DATA LAYER — Simulated Firebase / Backend
+══════════════════════════════════════════════ */
+
+// Demo users
+const USERS = {
+  'admin@city.gov':   { password:'admin123',   role:'admin',   name:'City Admin' },
+  'worker@city.gov':  { password:'worker123',  role:'worker',  name:'Field Worker' },
+  'citizen@city.gov': { password:'citizen123', role:'citizen', name:'John Citizen' },
+};
+
+// Initial bin data (Chennai locations)
+let bins = [
+  { id:'BIN-001', name:'Anna Nagar West',      lat:13.0850, lng:80.2101, fill:92, zone:'North' },
+  { id:'BIN-002', name:'T. Nagar Market',       lat:13.0418, lng:80.2341, fill:67, zone:'Central' },
+  { id:'BIN-003', name:'Marina Beach Entry',    lat:13.0500, lng:80.2824, fill:23, zone:'East' },
+  { id:'BIN-004', name:'Adyar Signal',          lat:13.0067, lng:80.2553, fill:85, zone:'South' },
+  { id:'BIN-005', name:'Velachery Main Rd',     lat:12.9815, lng:80.2209, fill:45, zone:'South' },
+  { id:'BIN-006', name:'Egmore Station Exit',   lat:13.0782, lng:80.2626, fill:78, zone:'Central' },
+  { id:'BIN-007', name:'Perambur Bus Depot',    lat:13.1143, lng:80.2380, fill:12, zone:'North' },
+  { id:'BIN-008', name:'Kodambakkam Corner',    lat:13.0541, lng:80.2206, fill:95, zone:'West' },
+  { id:'BIN-009', name:'Thiruvanmiyur Beach',   lat:12.9832, lng:80.2587, fill:58, zone:'South' },
+  { id:'BIN-010', name:'Porur Junction',        lat:13.0325, lng:80.1583, fill:34, zone:'West' },
+  { id:'BIN-011', name:'Sowcarpet Market',      lat:13.0938, lng:80.2701, fill:88, zone:'North' },
+  { id:'BIN-012', name:'Saidapet Bridge',       lat:13.0205, lng:80.2248, fill:61, zone:'Central' },
+];
+
+// Alert log
+let alertLog = [];
+
+// App state
+let currentUser = null;
+let currentFilter = 'all';
+let searchQuery = '';
+let alertFilterType = 'all';
+let mapInstance = null;
+let mapMarkers = [];
+let alertPanelOpen = false;
+let selectedRole = 'admin';
+let binIdCounter = bins.length + 1;
+
+/* ══════════════════════════════════════════════
+   AUTH
+══════════════════════════════════════════════ */
+
+function selectRole(role, btn) {
+  selectedRole = role;
+  document.querySelectorAll('.role-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  // Pre-fill demo credentials
+  const demos = {
+    admin: ['admin@city.gov','admin123'],
+    worker: ['worker@city.gov','worker123'],
+    citizen: ['citizen@city.gov','citizen123'],
+  };
+  document.getElementById('login-email').value = demos[role][0];
+  document.getElementById('login-password').value = demos[role][1];
+}
+
+function doLogin() {
+  const email = document.getElementById('login-email').value.trim().toLowerCase();
+  const password = document.getElementById('login-password').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  const user = USERS[email];
+  if (!user || user.password !== password) {
+    errEl.style.display = 'block';
+    return;
+  }
+  currentUser = { email, ...user };
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
+
+  // Set user info in topbar
+  document.getElementById('user-name-display').textContent = user.name;
+  document.getElementById('user-role-display').textContent = user.role.toUpperCase();
+  document.getElementById('user-avatar').textContent = user.name[0];
+
+  // Show admin-only items
+  if (user.role === 'admin') {
+    document.getElementById('nav-settings').style.display = 'flex';
+  }
+
+  initDashboard();
+  initAlerts();
+  checkBinsForAlerts();
+  startAutoRefresh();
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  if (mapInstance) { mapInstance.remove(); mapInstance = null; }
+  stopAutoRefresh();
+}
+
+/* ══════════════════════════════════════════════
+   NAV / PAGE ROUTING
+══════════════════════════════════════════════ */
+
+function showPage(page, navEl) {
+  document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const target = document.getElementById('page-' + page);
+  target.style.display = 'flex';
+  target.classList.add('active');
+  if (navEl) navEl.classList.add('active');
+
+  if (page === 'map') initMap();
+  if (page === 'alerts') renderAlertsTable();
+  if (page === 'settings') {
+    document.getElementById('bins-online-count').textContent = bins.length;
+    document.getElementById('last-sync').textContent = new Date().toLocaleTimeString();
+  }
+}
+
+/* ══════════════════════════════════════════════
+   DASHBOARD
+══════════════════════════════════════════════ */
+
+function getStatus(fill) {
+  if (fill < 50) return 'green';
+  if (fill <= 80) return 'orange';
+  return 'red';
+}
+
+function getStatusLabel(fill) {
+  if (fill < 50) return 'NORMAL';
+  if (fill <= 80) return 'HALF-FULL';
+  return 'CRITICAL';
+}
+
+function timeAgo(ms) {
+  const s = Math.floor((Date.now() - ms) / 1000);
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  return Math.floor(s/3600) + 'h ago';
+}
+
+function initDashboard() {
+  // Assign lastUpdated timestamps
+  bins = bins.map(b => ({ ...b, lastUpdated: Date.now() - Math.random()*300000 }));
+  renderStats();
+  renderBinGrid();
+}
+
+function renderStats() {
+  const green = bins.filter(b => b.fill < 50).length;
+  const orange = bins.filter(b => b.fill >= 50 && b.fill <= 80).length;
+  const red = bins.filter(b => b.fill > 80).length;
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">Total Bins</div>
+      <div class="stat-val accent">${bins.length}</div>
+      <div class="stat-change">Active sensors</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Normal</div>
+      <div class="stat-val green">${green}</div>
+      <div class="stat-change">&lt; 50% capacity</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Half-Full</div>
+      <div class="stat-val orange">${orange}</div>
+      <div class="stat-change">50–80% capacity</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Critical</div>
+      <div class="stat-val red">${red}</div>
+      <div class="stat-change">&gt; 80% capacity</div>
+    </div>
+  `;
+}
+
+function renderBinGrid() {
+  let filtered = bins;
+  if (currentFilter !== 'all') filtered = filtered.filter(b => getStatus(b.fill) === currentFilter);
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(b => b.id.toLowerCase().includes(q) || b.name.toLowerCase().includes(q) || b.zone.toLowerCase().includes(q));
+  }
+
+  document.getElementById('bin-grid').innerHTML = filtered.map(bin => {
+    const st = getStatus(bin.fill);
+    const sl = getStatusLabel(bin.fill);
+    return `
+    <div class="bin-card ${st}-card" onclick="openBinModal('${bin.id}')">
+      <div class="bin-header">
+        <div>
+          <div class="bin-id">${bin.id} · ${bin.zone}</div>
+          <div class="bin-name">${bin.name}</div>
+        </div>
+        <div class="status-dot ${st}"></div>
+      </div>
+      <div class="fill-bar-wrap">
+        <div class="fill-bar-label">
+          <span>Fill Level</span>
+          <span class="fill-pct ${st}">${bin.fill}%</span>
+        </div>
+        <div class="fill-bar-bg">
+          <div class="fill-bar-fg ${st}" style="width:${bin.fill}%"></div>
+        </div>
+      </div>
+      <div class="bin-footer">
+        <span class="bin-badge ${st}">${sl}</span>
+        <span class="bin-time">⏱ ${timeAgo(bin.lastUpdated)}</span>
+      </div>
+    </div>`;
+  }).join('') || '<div style="padding:40px;color:var(--text3);font-family:\'Space Mono\',monospace;font-size:13px">No bins match your filter.</div>';
+}
+
+function filterBins(type, btn, query) {
+  if (type === 'search') {
+    searchQuery = query;
+  } else {
+    currentFilter = type;
+    searchQuery = '';
+    document.getElementById('bin-search').value = '';
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+  }
+  renderBinGrid();
+}
+
+/* ══════════════════════════════════════════════
+   BIN MODAL
+══════════════════════════════════════════════ */
+
+function openBinModal(id) {
+  const bin = bins.find(b => b.id === id);
+  if (!bin) return;
+  const st = getStatus(bin.fill);
+  const sl = getStatusLabel(bin.fill);
+  document.getElementById('modal-title').textContent = `${bin.id} — ${bin.name}`;
+  document.getElementById('modal-body').innerHTML = `
+    <div class="modal-row">
+      <div class="modal-field"><div class="modal-field-label">Zone</div><div class="modal-field-value">${bin.zone}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Status</div><div class="bin-badge ${st}" style="font-size:12px;padding:4px 12px">${sl}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Fill Level</div><div class="modal-field-value" style="color:var(--${st})">${bin.fill}%</div></div>
+    </div>
+    <div class="modal-big-bar">
+      <div class="modal-big-bar-fg ${st}" style="width:${bin.fill}%"></div>
+    </div>
+    <div style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text3);margin-bottom:16px">
+      Fill bar: ${bin.fill}% of capacity
+    </div>
+    <div class="modal-row">
+      <div class="modal-field"><div class="modal-field-label">GPS Coordinates</div>
+        <div class="modal-field-value" style="font-size:12px;font-family:'Space Mono',monospace">${bin.lat.toFixed(4)}, ${bin.lng.toFixed(4)}</div></div>
+      <div class="modal-field"><div class="modal-field-label">Last Updated</div>
+        <div class="modal-field-value" style="font-size:13px">${timeAgo(bin.lastUpdated)}</div></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal()">Close</button>
+      ${currentUser && currentUser.role !== 'citizen' ? `<button class="btn btn-accent" onclick="markCollected('${bin.id}')">✓ Mark Collected</button>` : ''}
+      <button class="btn btn-ghost" onclick="focusOnMap('${bin.id}')">📍 Show on Map</button>
+    </div>
+  `;
+  document.getElementById('bin-modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('bin-modal').classList.remove('open');
+}
+
+function markCollected(id) {
+  const bin = bins.find(b => b.id === id);
+  if (!bin) return;
+  bin.fill = Math.floor(Math.random() * 20);
+  bin.lastUpdated = Date.now();
+  closeModal();
+  renderStats();
+  renderBinGrid();
+  if (mapInstance) updateMapMarkers();
+  showToast('success', '✓ Collected', `${bin.id} marked as collected. Fill reset to ${bin.fill}%.`);
+}
+
+function focusOnMap(id) {
+  closeModal();
+  showPage('map', document.getElementById('nav-map'));
+  setTimeout(() => {
+    const bin = bins.find(b => b.id === id);
+    if (bin && mapInstance) mapInstance.setView([bin.lat, bin.lng], 16);
+  }, 400);
+}
+
+/* ══════════════════════════════════════════════
+   ADD BIN
+══════════════════════════════════════════════ */
+
+function showAddBinModal() {
+  if (currentUser && currentUser.role === 'citizen') {
+    showToast('warn', 'Access Denied', 'Only admins and workers can add bins.');
+    return;
+  }
+  document.getElementById('add-bin-modal').classList.add('open');
+}
+
+function addNewBin() {
+  const name = document.getElementById('new-bin-name').value.trim();
+  const lat  = parseFloat(document.getElementById('new-bin-lat').value);
+  const lng  = parseFloat(document.getElementById('new-bin-lng').value);
+  const fill = parseInt(document.getElementById('new-bin-fill').value);
+
+  if (!name || isNaN(lat) || isNaN(lng) || isNaN(fill)) {
+    showToast('warn', 'Validation Error', 'Please fill all fields correctly.');
+    return;
+  }
+
+  binIdCounter++;
+  const newBin = {
+    id: `BIN-${String(binIdCounter).padStart(3,'0')}`,
+    name, lat, lng, fill,
+    zone: 'Custom',
+    lastUpdated: Date.now()
+  };
+  bins.push(newBin);
+  document.getElementById('add-bin-modal').classList.remove('open');
+  renderStats(); renderBinGrid();
+  if (mapInstance) updateMapMarkers();
+  checkBinsForAlerts();
+  showToast('success', '+ Bin Added', `${newBin.id} added to the system.`);
+}
+
+/* ══════════════════════════════════════════════
+   MAP (Leaflet.js)
+══════════════════════════════════════════════ */
+
+function initMap() {
+  if (mapInstance) { updateMapMarkers(); return; }
+  setTimeout(() => {
+    mapInstance = L.map('leaflet-map', {
+      center: [13.0522, 80.2410], // Chennai center
+      zoom: 12,
+      zoomControl: true,
+    });
+
+    // Dark-style tile layer from CartoDB
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CartoDB',
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(mapInstance);
+
+    updateMapMarkers();
+  }, 100);
+}
+
+function updateMapMarkers() {
+  // Remove existing markers
+  mapMarkers.forEach(m => m.remove());
+  mapMarkers = [];
+
+  bins.forEach(bin => {
+    const st = getStatus(bin.fill);
+    const colors = { green:'#4cdb7a', orange:'#f5a623', red:'#f5424a' };
+    const color = colors[st];
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="
+        width:36px;height:36px;border-radius:50%;
+        background:${color}22;border:2px solid ${color};
+        display:flex;align-items:center;justify-content:center;
+        font-size:11px;font-weight:700;color:${color};
+        font-family:'Space Mono',monospace;
+        box-shadow:0 0 12px ${color}44;
+      ">${bin.fill}%</div>`,
+      iconSize: [36,36],
+      iconAnchor: [18,18],
+    });
+
+    const marker = L.marker([bin.lat, bin.lng], { icon });
+    marker.bindPopup(`
+      <div style="font-family:'Space Mono',monospace;color:#e8ebe6;background:#141714;
+        border:1px solid #2a2e29;padding:14px;min-width:180px;font-size:12px">
+        <b style="font-family:'Syne',sans-serif;font-size:14px;color:${color}">${bin.id}</b><br/>
+        <span style="color:#8a9088">${bin.name}</span><br/><br/>
+        Fill: <b style="color:${color}">${bin.fill}%</b><br/>
+        Zone: ${bin.zone}<br/>
+        Updated: ${timeAgo(bin.lastUpdated)}
+      </div>
+    `, { className: 'custom-popup' });
+    marker.addTo(mapInstance);
+    mapMarkers.push(marker);
+  });
+}
+
+/* ══════════════════════════════════════════════
+   ALERTS SYSTEM
+══════════════════════════════════════════════ */
+
+function checkBinsForAlerts() {
+  bins.forEach(bin => {
+    if (bin.fill > 80) {
+      const exists = alertLog.find(a => a.binId === bin.id && a.type === 'critical' && !a.resolved);
+      if (!exists) {
+        addAlert('critical', bin);
+      }
+    } else if (bin.fill > 50) {
+      const exists = alertLog.find(a => a.binId === bin.id && a.type === 'warning' && !a.resolved);
+      if (!exists) {
+        addAlert('warning', bin);
+      }
+    }
+  });
+  updateAlertCount();
+}
+
+function addAlert(type, bin) {
+  const messages = {
+    critical: `Bin ${bin.id} exceeds 80% capacity. Immediate collection required.`,
+    warning:  `Bin ${bin.id} is over 50% full. Plan collection soon.`,
+    info:     `Bin ${bin.id} data updated.`,
+  };
+  alertLog.unshift({
+    id: 'ALT-' + Date.now(),
+    type,
+    binId: bin.id,
+    binName: bin.name,
+    fill: bin.fill,
+    message: messages[type],
+    time: new Date(),
+    resolved: false,
+  });
+
+  // Notify via toast for critical alerts
+  if (type === 'critical') {
+    showToast('danger', '🔴 Critical Alert', `${bin.id}: ${bin.fill}% full — immediate action needed!`);
+  }
+
+  renderAlertPanel();
+  updateAlertCount();
+  if (document.getElementById('page-alerts').classList.contains('active')) renderAlertsTable();
+}
+
+function initAlerts() {
+  checkBinsForAlerts();
+}
+
+function updateAlertCount() {
+  const count = alertLog.filter(a => !a.resolved).length;
+  document.getElementById('alert-count').textContent = count;
+}
+
+function renderAlertPanel() {
+  const list = document.getElementById('alert-list-panel');
+  const active = alertLog.filter(a => !a.resolved);
+  list.innerHTML = active.length === 0
+    ? '<div style="padding:20px;font-size:12px;color:var(--text3);font-family:\'Space Mono\',monospace">No active alerts.</div>'
+    : active.slice(0,10).map(a => `
+    <div class="alert-item ${a.type==='warning'?'warn':''}">
+      <div class="alert-level ${a.type==='warning'?'warn':''}">${a.type.toUpperCase()}</div>
+      <div class="alert-id">${a.id} · ${a.binId}</div>
+      <div class="alert-msg">${a.message}</div>
+      <div class="alert-meta">${a.time.toLocaleTimeString()} · ${a.fill}% full</div>
+    </div>`).join('');
+}
+
+function renderAlertsTable() {
+  let filtered = alertLog;
+  if (alertFilterType !== 'all') filtered = filtered.filter(a => a.type === alertFilterType);
+
+  const tbody = document.getElementById('alerts-table-body');
+  tbody.innerHTML = filtered.length === 0
+    ? `<tr><td colspan="6" style="padding:40px;text-align:center;color:var(--text3);font-family:'Space Mono',monospace;font-size:12px">No alerts.</td></tr>`
+    : filtered.map(a => `
+    <tr>
+      <td><span class="severity-badge sev-${a.type==='critical'?'critical':a.type==='warning'?'warning':'info'}">${a.type}</span></td>
+      <td style="font-family:'Space Mono',monospace;font-size:12px">${a.binId}</td>
+      <td style="max-width:240px">${a.message}</td>
+      <td style="color:var(--${getStatus(a.fill)});font-family:'Space Mono',monospace;font-weight:700">${a.fill}%</td>
+      <td style="font-size:11px;font-family:'Space Mono',monospace;color:var(--text3)">${a.time.toLocaleTimeString()}</td>
+      <td><span style="font-size:10px;font-family:'Space Mono',monospace;color:${a.resolved?'var(--green)':'var(--red)'}">
+        ${a.resolved ? '✓ RESOLVED' : '● ACTIVE'}
+      </span></td>
+    </tr>`).join('');
+
+  // Update stats
+  document.getElementById('alert-stat-total').textContent = alertLog.length;
+  document.getElementById('alert-stat-crit').textContent = alertLog.filter(a=>a.type==='critical').length;
+  document.getElementById('alert-stat-warn').textContent = alertLog.filter(a=>a.type==='warning').length;
+  document.getElementById('alert-stat-res').textContent = alertLog.filter(a=>a.resolved).length;
+}
+
+function filterAlerts(type, btn) {
+  alertFilterType = type;
+  document.querySelectorAll('.sidebar-filter').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderAlertsTable();
+}
+
+function clearAlerts() {
+  alertLog.forEach(a => a.resolved = true);
+  updateAlertCount();
+  renderAlertsTable();
+  renderAlertPanel();
+  showToast('success', 'Cleared', 'All alerts marked as resolved.');
+}
+
+function toggleAlertPanel() {
+  alertPanelOpen = !alertPanelOpen;
+  document.getElementById('alert-panel').classList.toggle('open', alertPanelOpen);
+}
+
+/* ══════════════════════════════════════════════
+   SIMULATE REAL-TIME UPDATES (IoT simulation)
+══════════════════════════════════════════════ */
+
+let autoRefreshInterval = null;
+
+function simulateUpdate() {
+  // Randomly update some bins
+  const numToUpdate = Math.floor(Math.random() * 5) + 2;
+  const shuffled = [...bins].sort(() => Math.random() - 0.5);
+  shuffled.slice(0, numToUpdate).forEach(bin => {
+    const delta = Math.floor(Math.random() * 20) - 5;
+    bin.fill = Math.max(0, Math.min(100, bin.fill + delta));
+    bin.lastUpdated = Date.now();
+  });
+  renderStats();
+  renderBinGrid();
+  if (mapInstance) updateMapMarkers();
+  checkBinsForAlerts();
+  showToast('success', '↻ Data Refreshed', `${numToUpdate} bins updated via IoT sensor simulation.`);
+  document.getElementById('last-sync').textContent = new Date().toLocaleTimeString();
+}
+
+function startAutoRefresh() {
+  autoRefreshInterval = setInterval(() => {
+    // Silently update 1-2 bins
+    const bin = bins[Math.floor(Math.random() * bins.length)];
+    const delta = Math.floor(Math.random() * 8) - 2;
+    bin.fill = Math.max(0, Math.min(100, bin.fill + delta));
+    bin.lastUpdated = Date.now();
+    renderStats();
+    renderBinGrid();
+    if (mapInstance) updateMapMarkers();
+    checkBinsForAlerts();
+  }, 30000); // every 30s
+}
+
+function stopAutoRefresh() {
+  if (autoRefreshInterval) clearInterval(autoRefreshInterval);
+}
+
+/* ══════════════════════════════════════════════
+   TOAST NOTIFICATIONS
+══════════════════════════════════════════════ */
+
+function showToast(type, title, msg) {
+  const icons = { danger:'🔴', warn:'🟠', success:'🟢' };
+  const container = document.getElementById('toast-container');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type]||'ℹ️'}</span>
+    <div>
+      <div class="toast-title">${title}</div>
+      <div class="toast-msg">${msg}</div>
+    </div>
+  `;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 50);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 400);
+  }, 4000);
+}
+
+/* ══════════════════════════════════════════════
+   KEYBOARD & MISC
+══════════════════════════════════════════════ */
+
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeModal(); document.getElementById('add-bin-modal').classList.remove('open'); }
+});
+
+// Allow pressing Enter on login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+
+// Close modal on overlay click
+document.getElementById('bin-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('add-bin-modal').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('open');
+});
+
+// Leaflet popup styling
+const styleEl = document.createElement('style');
+styleEl.textContent = `.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:#141714!important;border:1px solid #2a2e29!important;box-shadow:0 4px 24px rgba(0,0,0,.6)!important;padding:0!important;border-radius:0!important}.leaflet-popup-content{margin:0!important}`;
+document.head.appendChild(styleEl);
+</script>
+</body>
+</html>
